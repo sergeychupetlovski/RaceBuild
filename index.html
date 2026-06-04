@@ -421,4 +421,321 @@
                     const colorClass = typeColors[dayData.type] || defaultColor;
                     badgeHTML = `<span class="inline-block text-xs font-bold border px-2 py-0.5 rounded-full mb-3 w-fit ${colorClass}">${dayData.type}</span>`;
                 } else {
-                    badgeHTML = `<span class="inline-block text-xs font-semibold text-slate-300 border border-dashed border-slate-200 px-2 p
+                    badgeHTML = `<span class="inline-block text-xs font-semibold text-slate-300 border border-dashed border-slate-200 px-2 py-0.5 rounded-full mb-3 w-fit">Rest/Planned Off</span>`;
+                }
+
+                // Details Preview
+                let detailsHTML = `<p class="text-xs text-slate-500 line-clamp-3 mb-4 flex-grow">${dayData.details ? escapeHTML(dayData.details) : 'No plan details added yet.'}</p>`;
+
+                // Bottom Indicator if execution comments exist
+                let footerHTML = '';
+                if (dayData.results) {
+                    footerHTML = `
+                        <div class="mt-auto pt-2 border-t border-slate-100 flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            Log entered
+                        </div>
+                    `;
+                } else {
+                    footerHTML = `
+                        <div class="mt-auto pt-2 border-t border-slate-50 flex items-center gap-1.5 text-xs text-slate-300">
+                            No log details
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = headerHTML + badgeHTML + detailsHTML + footerHTML;
+                gridElement.appendChild(card);
+            }
+        }
+
+        // Render both Week 1 and Week 2
+        function renderWeeks() {
+            const week1Start = new Date(currentMonday);
+            const week1End = addDays(week1Start, 6);
+
+            const week2Start = addDays(week1Start, 7);
+            const week2End = addDays(week1Start, 13);
+
+            // Update Week 1 Heading
+            week1Heading.textContent = `Week 1: ${week1Start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${week1End.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+            
+            // Update Week 2 Heading
+            week2Heading.textContent = `Week 2: ${week2Start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${week2End.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+            
+            // Render Grids
+            populateGrid(week1Grid, week1Start);
+            populateGrid(week2Grid, week2Start);
+        }
+
+        // Modal Operations
+        window.openEditModal = function(dayKey) {
+            const dayDate = new Date(dayKey + 'T00:00:00'); // Prevent timezone offset errors
+            const dayData = trainingPlans[dayKey] || { type: '', details: '', results: '' };
+
+            modalDateLabel.textContent = dayDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+            modalDateVal.value = dayKey;
+            sessionTypeSelect.value = dayData.type;
+            sessionDetailsText.value = dayData.details;
+            sessionResultsText.value = dayData.results;
+
+            modalBackdrop.classList.remove('hidden');
+        };
+
+        function closeModal() {
+            modalBackdrop.classList.add('hidden');
+            planForm.reset();
+        }
+
+        // Form Submit
+        planForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const dayKey = modalDateVal.value;
+            const selectedType = sessionTypeSelect.value;
+            const details = sessionDetailsText.value.trim();
+            const results = sessionResultsText.value.trim();
+
+            if (!selectedType && !details && !results) {
+                delete trainingPlans[dayKey];
+            } else {
+                trainingPlans[dayKey] = {
+                    type: selectedType,
+                    details: details,
+                    results: results
+                };
+            }
+
+            localStorage.setItem('trainingPlans', JSON.stringify(trainingPlans));
+            closeModal();
+            renderWeeks();
+
+            if (syncCode) {
+                await pushToCloud();
+            }
+        });
+
+        // --- CLOUD SYNC CONTROLS ACTION HANDLERS ---
+        syncModalBtn.addEventListener('click', () => {
+            updateSyncModalUI();
+            syncBackdrop.classList.remove('hidden');
+        });
+
+        function closeSyncModal() {
+            syncBackdrop.classList.add('hidden');
+        }
+        closeSyncBtn.addEventListener('click', closeSyncModal);
+        syncBackdrop.addEventListener('click', (e) => {
+            if (e.target === syncBackdrop) closeSyncModal();
+        });
+
+        // Generate a clean database bucket on KVdb.io
+        generateSyncBtn.addEventListener('click', async () => {
+            generateSyncBtn.disabled = true;
+            generateSyncBtn.textContent = "Generating Bucket...";
+            
+            try {
+                const res = await fetch('https://kvdb.io/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `email=racebuild_sync_${Date.now()}@racebuild.com`
+                });
+
+                if (res.ok) {
+                    const generatedBucketId = (await res.text()).trim();
+                    syncCode = generatedBucketId;
+                    localStorage.setItem('rb_sync_code', syncCode);
+                    
+                    await pushToCloud();
+                    
+                    updateSyncModalUI();
+                    updateSyncHeaderUI(true);
+                    alert("Success! Your secret sync space was generated. Use the code on other devices to connect.");
+                } else {
+                    alert("Failed to initialize server. Please try again.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Network error. Unable to establish cloud sync.");
+            } finally {
+                generateSyncBtn.disabled = false;
+                generateSyncBtn.textContent = "Generate New Sync Code";
+            }
+        });
+
+        // Connect and pull data from an existing code
+        connectSyncBtn.addEventListener('click', async () => {
+            const rawCode = inputSyncCode.value.trim();
+            if (!rawCode) {
+                alert("Please enter a valid code.");
+                return;
+            }
+
+            connectSyncBtn.disabled = true;
+            connectSyncBtn.textContent = "Connecting...";
+
+            try {
+                const res = await fetch(`https://kvdb.io/${rawCode}/plans`);
+                if (res.ok) {
+                    const cloudData = await res.json();
+                    if (cloudData && typeof cloudData === 'object') {
+                        syncCode = rawCode;
+                        localStorage.setItem('rb_sync_code', syncCode);
+                        
+                        trainingPlans = cloudData;
+                        localStorage.setItem('trainingPlans', JSON.stringify(trainingPlans));
+                        renderWeeks();
+
+                        updateSyncModalUI();
+                        updateSyncHeaderUI(true);
+                        alert("Successfully connected to your cloud plan! Data is now synchronized.");
+                    } else {
+                        alert("The data in this space appears empty or corrupted.");
+                    }
+                } else {
+                    alert("Sync Code not found. Please double-check spelling.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Network error. Could not pull plans.");
+            } finally {
+                connectSyncBtn.disabled = false;
+                connectSyncBtn.textContent = "Connect & Pull";
+            }
+        });
+
+        // Copy Sync Code
+        copyCodeBtn.addEventListener('click', () => {
+            activeCodeVal.select();
+            document.execCommand('copy');
+            copyCodeBtn.textContent = "Copied!";
+            setTimeout(() => {
+                copyCodeBtn.textContent = "Copy";
+            }, 1500);
+        });
+
+        // Disconnect Sync (Does not delete data)
+        disconnectSyncBtn.addEventListener('click', () => {
+            if (confirm("Are you sure? This will disconnect your device from cloud backups, but your workouts will remain locally on this browser.")) {
+                syncCode = '';
+                localStorage.removeItem('rb_sync_code');
+                updateSyncHeaderUI(false);
+                closeSyncModal();
+            }
+        });
+
+        forcePushBtn.addEventListener('click', async () => {
+            forcePushBtn.disabled = true;
+            forcePushBtn.textContent = "Uploading...";
+            await pushToCloud();
+            forcePushBtn.disabled = false;
+            forcePushBtn.textContent = "Force Push";
+        });
+
+        forcePullBtn.addEventListener('click', async () => {
+            forcePullBtn.disabled = true;
+            forcePullBtn.textContent = "Downloading...";
+            await pullFromCloud();
+            forcePullBtn.disabled = false;
+            forcePullBtn.textContent = "Force Pull";
+        });
+        // -------------------------------------------
+
+        // Export Training Data to JSON File
+        exportBtn.addEventListener('click', () => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(trainingPlans, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "training_schedule_backup.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        });
+
+        // Trigger file input click when clicking "Import Backup"
+        importBtn.addEventListener('click', () => {
+            importFileInput.click();
+        });
+
+        // Handle File Import
+        importFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(evt) {
+                try {
+                    const importedData = JSON.parse(evt.target.result);
+                    if (typeof importedData === 'object' && importedData !== null) {
+                        trainingPlans = importedData;
+                        localStorage.setItem('trainingPlans', JSON.stringify(trainingPlans));
+                        renderWeeks();
+                        alert("Data successfully imported!");
+
+                        if (syncCode) {
+                            await pushToCloud();
+                        }
+                    } else {
+                        alert("Invalid file structure.");
+                    }
+                } catch (err) {
+                    alert("Error parsing file. Ensure it is a valid backup file.");
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        // Navigation Click Handlers (Shifting by 14 days / 2 weeks)
+        prevWeekBtn.addEventListener('click', () => {
+            currentMonday = addDays(currentMonday, -14);
+            renderWeeks();
+        });
+
+        nextWeekBtn.addEventListener('click', () => {
+            currentMonday = addDays(currentMonday, 14);
+            renderWeeks();
+        });
+
+        todayBtn.addEventListener('click', () => {
+            currentMonday = getMonday(new Date());
+            renderWeeks();
+        });
+
+        jumpDateInput.addEventListener('change', (e) => {
+            if (e.target.value) {
+                currentMonday = getMonday(new Date(e.target.value + 'T00:00:00'));
+                renderWeeks();
+            }
+        });
+
+        closeModalBtn.addEventListener('click', closeModal);
+        cancelModalBtn.addEventListener('click', closeModal);
+        modalBackdrop.addEventListener('click', (e) => {
+            if (e.target === modalBackdrop) closeModal();
+        });
+
+        // Helper to prevent XSS
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        // Initial Run / Page Load Initialization
+        async function init() {
+            renderWeeks();
+            
+            if (syncCode) {
+                updateSyncHeaderUI(true, "Syncing...");
+                const pulled = await pullFromCloud();
+                if (pulled) {
+                    updateSyncHeaderUI(true, "Synced");
+                }
+            } else {
+                updateSyncHeaderUI(false);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
