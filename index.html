@@ -10,13 +10,12 @@
 <body class="bg-slate-50 min-h-screen py-6 px-4 sm:px-6 lg:px-8 font-sans text-slate-900">
 
     <div class="max-w-7xl mx-auto">
-        <!-- Header with RaceBuild Logo -->
+        <!-- Header with RaceBuild Logo & Controls -->
         <header class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-200 pb-5 gap-4">
             <div class="flex items-center gap-3">
                 <!-- Inline SVG Logo for RaceBuild -->
                 <div class="bg-indigo-600 p-2.5 rounded-xl text-white shadow-md shadow-indigo-100 flex items-center justify-center">
                     <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <!-- Structural Sporty 'R' with speed dashes -->
                         <path d="M4 21V3H12C15 3 17.5 5.5 17.5 8.5C17.5 11.5 15 14 12 14H4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
                         <path d="M10.5 14L17 21" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
                         <path d="M7 7.5H11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -31,6 +30,12 @@
             
             <!-- Jump, Sync, & Navigation Controls -->
             <div class="flex flex-wrap items-center gap-3">
+                <!-- Cloud Sync Button -->
+                <button id="sync-modal-btn" class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-sm font-semibold hover:bg-indigo-100 transition shadow-sm">
+                    <span id="sync-status-icon">☁️</span> 
+                    <span id="sync-status-text">Cloud Sync</span>
+                </button>
+
                 <!-- Backup & Restore Buttons -->
                 <div class="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-1 shadow-sm">
                     <button id="export-btn" class="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-indigo-600 rounded hover:bg-slate-50 transition" title="Save your training data to a file">Export Backup</button>
@@ -123,6 +128,75 @@
         </div>
     </div>
 
+    <!-- Cloud Sync Modal -->
+    <div id="sync-backdrop" class="fixed inset-0 bg-slate-950/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden transform transition-all">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="font-bold text-slate-800 text-lg">☁️ Setup Cloud Sync</h3>
+                <button id="close-sync-btn" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+            </div>
+            
+            <div class="p-6 space-y-6">
+                <!-- State 1: Already Synced -->
+                <div id="sync-active-ui" class="hidden space-y-4">
+                    <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-sm">
+                        <p class="font-semibold flex items-center gap-1.5">
+                            <span class="text-lg">✓</span> Connected to Cloud Storage
+                        </p>
+                        <p class="text-xs text-emerald-600 mt-1">Changes you make on this device will automatically sync to your other connected devices.</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Your Secret Sync Code</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="active-code-val" readonly class="w-full border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm font-mono focus:outline-none select-all text-center font-bold">
+                            <button id="copy-code-btn" class="px-3 py-2 bg-slate-200 text-slate-700 hover:bg-slate-300 rounded-lg text-sm font-medium transition">Copy</button>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-2">Write down or copy this code. Input it on your phone or other browsers to connect them instantly.</p>
+                    </div>
+
+                    <div class="flex justify-between items-center pt-4 border-t border-slate-100 gap-2">
+                        <button id="disconnect-sync-btn" class="text-xs font-semibold text-red-600 hover:text-red-800 transition">Disconnect Sync</button>
+                        <div class="flex gap-2">
+                            <button id="force-pull-btn" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold transition" title="Force download from cloud">Force Pull</button>
+                            <button id="force-push-btn" class="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-md text-xs font-semibold transition" title="Force upload to cloud">Force Push</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- State 2: Not Synced -->
+                <div id="sync-inactive-ui" class="space-y-6">
+                    <p class="text-xs text-slate-500 leading-relaxed">Connecting your planner to the cloud lets you keep your training data in sync between your laptop, phone, or tablet automatically.</p>
+                    
+                    <!-- Create New Code -->
+                    <div class="p-4 bg-indigo-50 border border-indigo-100 rounded-lg space-y-3">
+                        <p class="text-xs font-bold text-indigo-800">First time syncing?</p>
+                        <p class="text-[11px] text-indigo-600 leading-relaxed">Generate a fresh secret database space. This will upload your current local plan to the cloud.</p>
+                        <button id="generate-sync-btn" class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition shadow-sm">
+                            Generate New Sync Code
+                        </button>
+                    </div>
+
+                    <div class="relative flex py-2 items-center">
+                        <div class="flex-grow border-t border-slate-200"></div>
+                        <span class="flex-shrink mx-4 text-slate-400 text-xs font-bold uppercase tracking-wider">OR</span>
+                        <div class="flex-grow border-t border-slate-200"></div>
+                    </div>
+
+                    <!-- Connect Existing Code -->
+                    <div class="space-y-2">
+                        <label for="input-sync-code" class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Connect Existing Device</label>
+                        <p class="text-[11px] text-slate-400 leading-relaxed mb-2">Already have a sync code from another device? Paste it here to merge and pull your plan.</p>
+                        <div class="flex gap-2">
+                            <input type="text" id="input-sync-code" placeholder="e.g., Fd55uogXyxYdnXJvnyN8Xo" class="w-full border border-slate-200 rounded-lg p-2 text-sm font-mono uppercase tracking-wider text-center focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <button id="connect-sync-btn" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-sm font-semibold transition shrink-0">Connect & Pull</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Color mapping based on Session Type
         const typeColors = {
@@ -145,6 +219,7 @@
         // Main State
         let currentMonday = getMonday(new Date());
         let trainingPlans = JSON.parse(localStorage.getItem('trainingPlans')) || {};
+        let syncCode = localStorage.getItem('rb_sync_code') || '';
 
         // --- SILENT MIGRATION SCRIPT ---
         const migrationMap = {
@@ -182,12 +257,31 @@
         const todayBtn = document.getElementById('today-btn');
         const jumpDateInput = document.getElementById('jump-date');
 
-        // Sync Buttons
+        // Backup Buttons
         const exportBtn = document.getElementById('export-btn');
         const importBtn = document.getElementById('import-btn');
         const importFileInput = document.getElementById('import-file-input');
 
-        // Modal Elements
+        // Cloud Sync UI Elements
+        const syncModalBtn = document.getElementById('sync-modal-btn');
+        const syncBackdrop = document.getElementById('sync-backdrop');
+        const closeSyncBtn = document.getElementById('close-sync-btn');
+        const syncStatusIcon = document.getElementById('sync-status-icon');
+        const syncStatusText = document.getElementById('sync-status-text');
+
+        const syncActiveUi = document.getElementById('sync-active-ui');
+        const syncInactiveUi = document.getElementById('sync-inactive-ui');
+        const activeCodeVal = document.getElementById('active-code-val');
+        const copyCodeBtn = document.getElementById('copy-code-btn');
+        const disconnectSyncBtn = document.getElementById('disconnect-sync-btn');
+        const forcePushBtn = document.getElementById('force-push-btn');
+        const forcePullBtn = document.getElementById('force-pull-btn');
+
+        const generateSyncBtn = document.getElementById('generate-sync-btn');
+        const inputSyncCode = document.getElementById('input-sync-code');
+        const connectSyncBtn = document.getElementById('connect-sync-btn');
+
+        // Edit Modal Elements
         const modalBackdrop = document.getElementById('modal-backdrop');
         const closeModalBtn = document.getElementById('close-modal-btn');
         const cancelModalBtn = document.getElementById('cancel-modal-btn');
@@ -223,6 +317,79 @@
             const options = { weekday: 'short', month: 'short', day: 'numeric' };
             return date.toLocaleDateString(undefined, options);
         }
+
+        // --- CLOUD SYNC FUNCTIONS ---
+        // Pushes state to the cloud bucket silently
+        async function pushToCloud() {
+            if (!syncCode) return;
+            try {
+                updateSyncHeaderUI(true, "Saving...");
+                const response = await fetch(`https://kvdb.io/${syncCode}/plans`, {
+                    method: 'PUT',
+                    body: JSON.stringify(trainingPlans)
+                });
+                if (response.ok) {
+                    updateSyncHeaderUI(true, "Synced");
+                } else {
+                    updateSyncHeaderUI(true, "Sync Error");
+                }
+            } catch (err) {
+                console.error("Cloud sync: Failed to push.", err);
+                updateSyncHeaderUI(true, "Sync Error");
+            }
+        }
+
+        // Pulls state from the cloud bucket silently
+        async function pullFromCloud() {
+            if (!syncCode) return false;
+            try {
+                updateSyncHeaderUI(true, "Pulling...");
+                const response = await fetch(`https://kvdb.io/${syncCode}/plans`);
+                if (response.ok) {
+                    const cloudData = await response.json();
+                    if (cloudData && typeof cloudData === 'object') {
+                        trainingPlans = cloudData;
+                        localStorage.setItem('trainingPlans', JSON.stringify(trainingPlans));
+                        renderWeeks();
+                        updateSyncHeaderUI(true, "Synced");
+                        return true;
+                    }
+                } else if (response.status === 404) {
+                    // Key doesn't exist yet, push our current empty plan as starting point
+                    await pushToCloud();
+                    return true;
+                }
+            } catch (err) {
+                console.error("Cloud sync: Failed to pull.", err);
+                updateSyncHeaderUI(true, "Sync Off-line");
+            }
+            return false;
+        }
+
+        // Updates the header status button look
+        function updateSyncHeaderUI(active, textOverride) {
+            if (active) {
+                syncStatusIcon.textContent = "🟢";
+                syncStatusText.textContent = textOverride || "Synced";
+            } else {
+                syncStatusIcon.textContent = "☁️";
+                syncStatusText.textContent = "Cloud Sync";
+            }
+        }
+
+        // Setup the Sync Modal layout based on active/inactive status
+        function updateSyncModalUI() {
+            if (syncCode) {
+                syncInactiveUi.classList.add('hidden');
+                syncActiveUi.classList.remove('hidden');
+                activeCodeVal.value = syncCode;
+            } else {
+                syncActiveUi.classList.add('hidden');
+                syncInactiveUi.classList.remove('hidden');
+                inputSyncCode.value = '';
+            }
+        }
+        // -----------------------------
 
         // Helper to populate individual weekly grids
         function populateGrid(gridElement, startOfWeekDate) {
@@ -320,7 +487,7 @@
         }
 
         // Form Submit
-        planForm.addEventListener('submit', function(e) {
+        planForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             const dayKey = modalDateVal.value;
             const selectedType = sessionTypeSelect.value;
@@ -340,7 +507,143 @@
             localStorage.setItem('trainingPlans', JSON.stringify(trainingPlans));
             closeModal();
             renderWeeks();
+
+            // Silently back up to cloud database if active
+            if (syncCode) {
+                await pushToCloud();
+            }
         });
+
+        // --- CLOUD SYNC CONTROLS ACTION HANDLERS ---
+        // Toggle Sync Control Modal
+        syncModalBtn.addEventListener('click', () => {
+            updateSyncModalUI();
+            syncBackdrop.classList.remove('hidden');
+        });
+
+        function closeSyncModal() {
+            syncBackdrop.classList.add('hidden');
+        }
+        closeSyncBtn.addEventListener('click', closeSyncModal);
+        syncBackdrop.addEventListener('click', (e) => {
+            if (e.target === syncBackdrop) closeSyncModal();
+        });
+
+        // Generate a clean database bucket on KVdb.io
+        generateSyncBtn.addEventListener('click', async () => {
+            generateSyncBtn.disabled = true;
+            generateSyncBtn.textContent = "Generating Bucket...";
+            
+            try {
+                // Post to create a public bucket
+                const res = await fetch('https://kvdb.io/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `email=racebuild_sync_${Date.now()}@racebuild.com`
+                });
+
+                if (res.ok) {
+                    const generatedBucketId = (await res.text()).trim();
+                    syncCode = generatedBucketId;
+                    localStorage.setItem('rb_sync_code', syncCode);
+                    
+                    // Upload current state immediately
+                    await pushToCloud();
+                    
+                    updateSyncModalUI();
+                    updateSyncHeaderUI(true);
+                    alert("Success! Your secret sync space was generated. Use the code on other devices to connect.");
+                } else {
+                    alert("Failed to initialize server. Please try again.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Network error. Unable to establish cloud sync.");
+            } finally {
+                generateSyncBtn.disabled = false;
+                generateSyncBtn.textContent = "Generate New Sync Code";
+            }
+        });
+
+        // Connect and pull data from an existing code
+        connectSyncBtn.addEventListener('click', async () => {
+            const rawCode = inputSyncCode.value.trim();
+            if (!rawCode) {
+                alert("Please enter a valid code.");
+                return;
+            }
+
+            connectSyncBtn.disabled = true;
+            connectSyncBtn.textContent = "Connecting...";
+
+            try {
+                const res = await fetch(`https://kvdb.io/${rawCode}/plans`);
+                if (res.ok) {
+                    const cloudData = await res.json();
+                    if (cloudData && typeof cloudData === 'object') {
+                        syncCode = rawCode;
+                        localStorage.setItem('rb_sync_code', syncCode);
+                        
+                        // Merge or replace local data with cloud data
+                        trainingPlans = cloudData;
+                        localStorage.setItem('trainingPlans', JSON.stringify(trainingPlans));
+                        renderWeeks();
+
+                        updateSyncModalUI();
+                        updateSyncHeaderUI(true);
+                        alert("Successfully connected to your cloud plan! Data is now synchronized.");
+                    } else {
+                        alert("The data in this space appears empty or corrupted.");
+                    }
+                } else {
+                    alert("Sync Code not found. Please double-check spelling.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Network error. Could not pull plans.");
+            } finally {
+                connectSyncBtn.disabled = false;
+                connectSyncBtn.textContent = "Connect & Pull";
+            }
+        });
+
+        // Copy Sync Code
+        copyCodeBtn.addEventListener('click', () => {
+            activeCodeVal.select();
+            document.execCommand('copy');
+            copyCodeBtn.textContent = "Copied!";
+            setTimeout(() => {
+                copyCodeBtn.textContent = "Copy";
+            }, 1500);
+        });
+
+        // Disconnect Sync (Does not delete data)
+        disconnectSyncBtn.addEventListener('click', () => {
+            if (confirm("Are you sure? This will disconnect your device from cloud backups, but your workouts will remain locally on this browser.")) {
+                syncCode = '';
+                localStorage.removeItem('rb_sync_code');
+                updateSyncHeaderUI(false);
+                closeSyncModal();
+            }
+        });
+
+        // Force manual trigger buttons
+        forcePushBtn.addEventListener('click', async () => {
+            forcePushBtn.disabled = true;
+            forcePushBtn.textContent = "Uploading...";
+            await pushToCloud();
+            forcePushBtn.disabled = false;
+            forcePushBtn.textContent = "Force Push";
+        });
+
+        forcePullBtn.addEventListener('click', async () => {
+            forcePullBtn.disabled = true;
+            forcePullBtn.textContent = "Downloading...";
+            await pullFromCloud();
+            forcePullBtn.disabled = false;
+            forcePullBtn.textContent = "Force Pull";
+        });
+        // -------------------------------------------
 
         // Export Training Data to JSON File
         exportBtn.addEventListener('click', () => {
@@ -364,7 +667,7 @@
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = function(evt) {
+            reader.onload = async function(evt) {
                 try {
                     const importedData = JSON.parse(evt.target.result);
                     if (typeof importedData === 'object' && importedData !== null) {
@@ -372,6 +675,11 @@
                         localStorage.setItem('trainingPlans', JSON.stringify(trainingPlans));
                         renderWeeks();
                         alert("Data successfully imported!");
+
+                        // Sync imported file to cloud if connected
+                        if (syncCode) {
+                            await pushToCloud();
+                        }
                     } else {
                         alert("Invalid file structure.");
                     }
@@ -418,8 +726,23 @@
             );
         }
 
-        // Initial Run
-        renderWeeks();
+        // Initial Run / Page Load Initialization
+        async function init() {
+            renderWeeks();
+            
+            if (syncCode) {
+                updateSyncHeaderUI(true, "Syncing...");
+                // Automatically pull updates upon opening the page
+                const pulled = await pullFromCloud();
+                if (pulled) {
+                    updateSyncHeaderUI(true, "Synced");
+                }
+            } else {
+                updateSyncHeaderUI(false);
+            }
+        }
+
+        init();
     </script>
 </body>
 </html>
