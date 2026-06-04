@@ -59,7 +59,7 @@
 
         <!-- Week 1 Section -->
         <div class="mb-8">
-            <h2 id="week1-heading" class="text-lg font-bold text-indigo-600 mb-3">Week 1...</h2>
+            <h2 id="week1-heading" class="text-lg font-bold text-indigo-600 mb-3">Week 1: Loading...</h2>
             <div class="grid grid-cols-1 md:grid-cols-7 gap-4" id="week1-grid">
                 <!-- Day Cards dynamically inserted here -->
             </div>
@@ -67,7 +67,7 @@
 
         <!-- Week 2 Section -->
         <div class="mb-8">
-            <h2 id="week2-heading" class="text-lg font-bold text-indigo-600 mb-3">Week 2...</h2>
+            <h2 id="week2-heading" class="text-lg font-bold text-indigo-600 mb-3">Week 2: Loading...</h2>
             <div class="grid grid-cols-1 md:grid-cols-7 gap-4" id="week2-grid">
                 <!-- Day Cards dynamically inserted here -->
             </div>
@@ -130,7 +130,7 @@
 
     <!-- Cloud Sync Modal -->
     <div id="sync-backdrop" class="fixed inset-0 bg-slate-950/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden transform transition-all">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-md w-full overflow-hidden transform transition-all">
             <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                 <h3 class="font-bold text-slate-800 text-lg">☁️ Setup Cloud Sync</h3>
                 <button id="close-sync-btn" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
@@ -149,7 +149,7 @@
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Your Secret Sync Code</label>
                         <div class="flex gap-2">
-                            <!-- Code Display Field (No forced uppercase) -->
+                            <!-- Code Display Field -->
                             <input type="text" id="active-code-val" readonly class="w-full border border-slate-200 bg-slate-50 rounded-lg p-2 text-sm font-mono focus:outline-none select-all text-center font-bold">
                             <button id="copy-code-btn" class="px-3 py-2 bg-slate-200 text-slate-700 hover:bg-slate-300 rounded-lg text-sm font-medium transition">Copy</button>
                         </div>
@@ -184,7 +184,7 @@
                         <div class="flex-grow border-t border-slate-200"></div>
                     </div>
 
-                    <!-- Connect Existing Code (Visual Forced Uppercase Removed, Mobile Keyboard Helpers Added) -->
+                    <!-- Connect Existing Code -->
                     <div class="space-y-2">
                         <label for="input-sync-code" class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Connect Existing Device</label>
                         <p class="text-[11px] text-slate-400 leading-relaxed mb-2">Already have a sync code from another device? Paste it here to merge and pull your plan.</p>
@@ -204,6 +204,41 @@
     </div>
 
     <script>
+        // --- HOISTED HELPER FUNCTIONS (Declared first to avoid loading order crashes) ---
+        function getMonday(d) {
+            d = new Date(d);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
+            return new Date(d.setDate(diff));
+        }
+
+        function addDays(date, days) {
+            const result = new Date(date);
+            result.setDate(result.getDate() + days);
+            return result;
+        }
+
+        function formatDateKey(date) {
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        function formatDisplayDate(date) {
+            const options = { weekday: 'short', month: 'short', day: 'numeric' };
+            return date.toLocaleDateString(undefined, options);
+        }
+
+        // Defensive escape function to prevent crashes if 'str' is somehow undefined or null
+        function escapeHTML(str) {
+            if (str === null || str === undefined) return '';
+            const stringVal = String(str);
+            return stringVal.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
         // Color mapping based on Session Type
         const typeColors = {
             "Rest Day": "bg-slate-100 text-slate-700 border-slate-200",
@@ -222,9 +257,21 @@
 
         const defaultColor = "bg-white text-slate-400 border-slate-200";
 
-        // Main State
+        // --- SAFE STATE INITIALIZATION ---
         let currentMonday = getMonday(new Date());
-        let trainingPlans = JSON.parse(localStorage.getItem('trainingPlans')) || {};
+        let trainingPlans = {};
+        
+        // Safety wrapper to load/parse local training plans
+        try {
+            const localData = localStorage.getItem('trainingPlans');
+            if (localData) {
+                trainingPlans = JSON.parse(localData) || {};
+            }
+        } catch (err) {
+            console.error("Local storage was corrupted. Re-initializing.", err);
+            trainingPlans = {};
+        }
+
         let syncCode = localStorage.getItem('rb_sync_code') || '';
 
         // --- SILENT MIGRATION SCRIPT ---
@@ -239,7 +286,7 @@
         };
         let dataMigrated = false;
         for (let dayKey in trainingPlans) {
-            if (trainingPlans[dayKey] && trainingPlans[dayKey].type) {
+            if (trainingPlans[dayKey] && typeof trainingPlans[dayKey].type === 'string') {
                 const oldTypeLower = trainingPlans[dayKey].type.toLowerCase();
                 if (migrationMap[oldTypeLower] && trainingPlans[dayKey].type !== migrationMap[oldTypeLower]) {
                     trainingPlans[dayKey].type = migrationMap[oldTypeLower];
@@ -297,32 +344,6 @@
         const sessionTypeSelect = document.getElementById('session-type');
         const sessionDetailsText = document.getElementById('session-details');
         const sessionResultsText = document.getElementById('session-results');
-
-        // Date Helpers
-        function getMonday(d) {
-            d = new Date(d);
-            const day = d.getDay();
-            const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
-            return new Date(d.setDate(diff));
-        }
-
-        function addDays(date, days) {
-            const result = new Date(date);
-            result.setDate(result.getDate() + days);
-            return result;
-        }
-
-        function formatDateKey(date) {
-            const yyyy = date.getFullYear();
-            const mm = String(date.getMonth() + 1).padStart(2, '0');
-            const dd = String(date.getDate()).padStart(2, '0');
-            return `${yyyy}-${mm}-${dd}`;
-        }
-
-        function formatDisplayDate(date) {
-            const options = { weekday: 'short', month: 'short', day: 'numeric' };
-            return date.toLocaleDateString(undefined, options);
-        }
 
         // --- CLOUD SYNC FUNCTIONS ---
         async function pushToCloud() {
@@ -713,25 +734,23 @@
             if (e.target === modalBackdrop) closeModal();
         });
 
-        // Helper to prevent XSS
-        function escapeHTML(str) {
-            return str.replace(/[&<>'"]/g, 
-                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-            );
-        }
-
-        // Initial Run / Page Load Initialization
+        // Initial Run / Page Load Initialization (Safe Error-proof Wrapper)
         async function init() {
-            renderWeeks();
-            
-            if (syncCode) {
-                updateSyncHeaderUI(true, "Syncing...");
-                const pulled = await pullFromCloud();
-                if (pulled) {
-                    updateSyncHeaderUI(true, "Synced");
+            try {
+                // Ensure layout draws safely first
+                renderWeeks();
+                
+                if (syncCode) {
+                    updateSyncHeaderUI(true, "Syncing...");
+                    const pulled = await pullFromCloud();
+                    if (pulled) {
+                        updateSyncHeaderUI(true, "Synced");
+                    }
+                } else {
+                    updateSyncHeaderUI(false);
                 }
-            } else {
-                updateSyncHeaderUI(false);
+            } catch (criticalErr) {
+                console.error("Initialization failed: ", criticalErr);
             }
         }
 
