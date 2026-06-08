@@ -12,6 +12,17 @@
             max-width: 100%;
             overflow-x: hidden;
         }
+        /* Custom scrollbar for long dynamic modals */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen py-6 px-3 sm:px-6 lg:px-8 font-sans text-slate-900">
@@ -35,10 +46,10 @@
                 </div>
             </div>
             
-            <!-- Jump, Sync, & Navigation Controls (Optimized for Mobile Fit) -->
+            <!-- Jump, Sync, & Navigation Controls -->
             <div class="flex flex-wrap items-center gap-2 text-sm">
                 <!-- Cloud Sync Button -->
-                <button id="sync-modal-btn" class="flex items-center gap-1.5 px-2.5 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-xs font-semibold hover:bg-indigo-100 transition shadow-sm">
+                <button id="sync-modal-btn" class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg text-xs font-semibold hover:bg-indigo-100 transition shadow-sm">
                     <span id="sync-status-icon">☁️</span> 
                     <span id="sync-status-text">Cloud Sync</span>
                 </button>
@@ -82,7 +93,7 @@
 
     <!-- Edit Day Modal -->
     <div id="modal-backdrop" class="fixed inset-0 bg-slate-950/40 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-lg w-full overflow-hidden transform transition-all">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-lg w-full max-h-[90vh] overflow-y-auto custom-scrollbar transform transition-all">
             <!-- Modal Header -->
             <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                 <h3 id="modal-date-label" class="font-bold text-slate-800 text-lg">Edit Plan</h3>
@@ -93,36 +104,40 @@
             <form id="plan-form" class="p-6 space-y-4">
                 <input type="hidden" id="modal-date-val">
                 
-                <!-- Session Type Selection -->
+                <!-- Session Type Selection (Ordered Alphabetically) -->
                 <div>
                     <label for="session-type" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Session Type</label>
                     <select id="session-type" class="w-full border border-slate-200 rounded-lg p-2 bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                         <option value="">-- No Session Scheduled --</option>
+                        <option value="Double Threshold">Double Threshold</option>
+                        <option value="Easy Aerobic">Easy Aerobic</option>
+                        <option value="Full Body Strength">Full Body Strength</option>
+                        <option value="Hill Sprints">Hill Sprints</option>
+                        <option value="Long Run">Long Run</option>
+                        <option value="Lower Strength">Lower Strength</option>
+                        <option value="Metcon">Metcon</option>
+                        <option value="RACE">RACE</option>
+                        <option value="Recovery Run">Recovery Run</option>
                         <option value="Rest Day">Rest Day</option>
                         <option value="Threshold Run">Threshold Run</option>
-                        <option value="Metcon">Metcon</option>
-                        <option value="VO2 Max">VO2 Max</option>
-                        <option value="Hill Sprints">Hill Sprints</option>
-                        <option value="Recovery Run">Recovery Run</option>
-                        <option value="Long Run">Long Run</option>
-                        <option value="Easy Aerobic">Easy Aerobic</option>
                         <option value="Upper Strength">Upper Strength</option>
-                        <option value="Lower Strength">Lower Strength</option>
-                        <option value="Full Body Strength">Full Body Strength</option>
-                        <option value="Race Day">Race Day</option>
+                        <option value="VO2 Max">VO2 Max</option>
                     </select>
                 </div>
 
                 <!-- Session Details -->
                 <div>
-                    <label for="session-details" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Session Details (Plan)</label>
-                    <textarea id="session-details" rows="4" placeholder="e.g., 5x1000m intervals at 4:00/km pace with 90s recovery..." class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+                    <div class="flex justify-between items-baseline">
+                        <label for="session-details" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Session Details (Plan)</label>
+                        <span class="text-[10px] text-slate-400">Tip: Highlight text & press <b>Ctrl+B</b> to make it bold</span>
+                    </div>
+                    <textarea id="session-details" rows="4" placeholder="e.g., 5x1000m intervals at 4:00/km pace with 90s recovery..." class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none overflow-hidden"></textarea>
                 </div>
 
                 <!-- Results & Comments -->
                 <div>
                     <label for="session-results" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Results & Comments (Execution)</label>
-                    <textarea id="session-results" rows="3" placeholder="e.g., Hit target paces. Heart rate peaked at 178 bpm. Felt strong on reps 3 and 4." class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+                    <textarea id="session-results" rows="3" placeholder="e.g., Hit target paces. Heart rate peaked at 178 bpm. Felt strong on reps 3 and 4." class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none overflow-hidden"></textarea>
                 </div>
 
                 <!-- Completed Checkbox in Modal -->
@@ -216,7 +231,7 @@
     </div>
 
     <script>
-        // --- HOISTED HELPER FUNCTIONS (Declared first to avoid loading order crashes) ---
+        // --- HOISTED HELPER FUNCTIONS ---
         function getMonday(d) {
             d = new Date(d);
             const day = d.getDay();
@@ -242,7 +257,7 @@
             return date.toLocaleDateString(undefined, options);
         }
 
-        // Defensive escape function that respects line breaks and formatting
+        // Defensive escape function
         function escapeHTML(str) {
             if (str === null || str === undefined) return '';
             const stringVal = String(str);
@@ -251,20 +266,33 @@
             );
         }
 
+        // Parses Markdown asterisks **bold** to HTML <strong>
+        function renderDetailsHTML(str) {
+            let html = escapeHTML(str);
+            return html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900">$1</strong>');
+        }
+
+        // Automatically expands textarea height based on content
+        function autoResizeTextarea(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        }
+
         // Color mapping based on Session Type
         const typeColors = {
-            "Rest Day": "bg-slate-100 text-slate-700 border-slate-200",
-            "Threshold Run": "bg-amber-50 text-amber-800 border-amber-200",
-            "Metcon": "bg-purple-50 text-purple-800 border-purple-200",
-            "VO2 Max": "bg-rose-50 text-rose-800 border-rose-200",
-            "Hill Sprints": "bg-pink-50 text-pink-800 border-pink-200",
-            "Recovery Run": "bg-emerald-50 text-emerald-800 border-emerald-200",
-            "Long Run": "bg-sky-50 text-sky-800 border-sky-200",
+            "Double Threshold": "bg-amber-100 text-amber-800 border-amber-200",
             "Easy Aerobic": "bg-teal-50 text-teal-800 border-teal-200",
-            "Upper Strength": "bg-blue-50 text-blue-800 border-blue-200",
-            "Lower Strength": "bg-indigo-50 text-indigo-800 border-indigo-200",
             "Full Body Strength": "bg-violet-50 text-violet-800 border-violet-200",
-            "Race Day": "bg-red-50 text-red-800 border-red-200 font-bold"
+            "Hill Sprints": "bg-pink-50 text-pink-800 border-pink-200",
+            "Long Run": "bg-sky-50 text-sky-800 border-sky-200",
+            "Lower Strength": "bg-indigo-50 text-indigo-800 border-indigo-200",
+            "Metcon": "bg-purple-50 text-purple-800 border-purple-200",
+            "RACE": "bg-red-50 text-red-800 border-red-200 font-bold",
+            "Recovery Run": "bg-emerald-50 text-emerald-800 border-emerald-200",
+            "Rest Day": "bg-slate-100 text-slate-700 border-slate-200",
+            "Threshold Run": "bg-orange-50 text-orange-800 border-orange-200",
+            "Upper Strength": "bg-blue-50 text-blue-800 border-blue-200",
+            "VO2 Max": "bg-rose-50 text-rose-800 border-rose-200"
         };
 
         const defaultColor = "bg-white text-slate-400 border-slate-200";
@@ -294,7 +322,9 @@
             "vo2 max": "VO2 Max",
             "hill sprints": "Hill Sprints",
             "recovery run": "Recovery Run",
-            "long run": "Long Run"
+            "long run": "Long Run",
+            "race day": "RACE",
+            "race": "RACE"
         };
         let dataMigrated = false;
         for (let dayKey in trainingPlans) {
@@ -363,7 +393,6 @@
             if (!syncCode) return;
             try {
                 updateSyncHeaderUI(true, "Saving...");
-                
                 const response = await fetch(`https://kvdb.io/${syncCode}/plans`, {
                     method: 'POST', 
                     body: JSON.stringify(trainingPlans)
@@ -460,12 +489,12 @@
                 const dayData = trainingPlans[dayKey] || { type: '', details: '', results: '', completed: false };
                 const isToday = formatDateKey(new Date()) === dayKey;
 
-                // Build Card (Adds an elegant emerald border on the left if marked completed)
+                // Build Card
                 const card = document.createElement('div');
                 card.className = `flex flex-col bg-white rounded-xl border p-4 shadow-sm hover:shadow-md transition cursor-pointer min-h-[220px] ${dayData.completed ? 'border-l-4 border-l-emerald-500 border-y-slate-200 border-r-slate-200' : 'border-slate-200'} ${isToday ? 'ring-2 ring-indigo-500' : ''}`;
                 card.setAttribute('onclick', `openEditModal('${dayKey}')`);
 
-                // Card Header (Day, Date, & Simple Checkbox)
+                // Card Header
                 let headerHTML = `
                     <div class="flex justify-between items-baseline mb-2">
                         <span class="font-bold text-sm ${isToday ? 'text-indigo-600' : 'text-slate-700'}">${formatDisplayDate(dayDate)}</span>
@@ -488,8 +517,8 @@
                     badgeHTML = `<span class="inline-block text-xs font-semibold text-slate-300 border border-dashed border-slate-200 px-2 py-0.5 rounded-full mb-3 w-fit">Rest/Planned Off</span>`;
                 }
 
-                // Details Preview (Supports newline, bullet points, and handles overflow)
-                let detailsHTML = `<p class="text-xs text-slate-600 whitespace-pre-wrap line-clamp-6 mb-4 flex-grow">${dayData.details ? escapeHTML(dayData.details) : 'No plan details added yet.'}</p>`;
+                // Details Preview
+                let detailsHTML = `<p class="text-xs text-slate-600 whitespace-pre-wrap line-clamp-6 mb-4 flex-grow">${dayData.details ? renderDetailsHTML(dayData.details) : 'No plan details added yet.'}</p>`;
 
                 // Bottom Indicator if execution comments exist
                 let footerHTML = '';
@@ -544,6 +573,12 @@
             sessionResultsText.value = dayData.results;
             sessionCompletedCheck.checked = dayData.completed || false;
 
+            // Trigger heights updates for textareas
+            setTimeout(() => {
+                autoResizeTextarea(sessionDetailsText);
+                autoResizeTextarea(sessionResultsText);
+            }, 10);
+
             modalBackdrop.classList.remove('hidden');
         };
 
@@ -579,6 +614,44 @@
             if (syncCode) {
                 await pushToCloud();
             }
+        });
+
+        // --- KEY EVENT LISTENERS FOR BOLD TEXT (Ctrl + B / Cmd + B) ---
+        function applyBoldHotkey(textarea) {
+            textarea.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+                    e.preventDefault();
+                    const start = this.selectionStart;
+                    const end = this.selectionEnd;
+                    const text = this.value;
+                    const selectedText = text.substring(start, end);
+                    
+                    const replacement = `**${selectedText}**`;
+                    this.value = text.substring(0, start) + replacement + text.substring(end);
+                    
+                    // Put cursor focus inside asterisks if empty, or after asterisks if wrapping
+                    if (start === end) {
+                        this.selectionStart = start + 2;
+                        this.selectionEnd = start + 2;
+                    } else {
+                        this.selectionStart = start + replacement.length;
+                        this.selectionEnd = start + replacement.length;
+                    }
+
+                    autoResizeTextarea(this);
+                }
+            });
+        }
+
+        applyBoldHotkey(sessionDetailsText);
+        applyBoldHotkey(sessionResultsText);
+
+        // Auto-expand textarea elements during typing inputs
+        sessionDetailsText.addEventListener('input', function() {
+            autoResizeTextarea(this);
+        });
+        sessionResultsText.addEventListener('input', function() {
+            autoResizeTextarea(this);
         });
 
         // --- CLOUD SYNC CONTROLS ACTION HANDLERS ---
