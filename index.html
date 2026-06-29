@@ -111,6 +111,7 @@
                         <option value="">-- No Session Scheduled --</option>
                         <option value="Double Threshold">Double Threshold</option>
                         <option value="Easy Aerobic">Easy Aerobic</option>
+                        <option value="Easy Run">Easy Run</option>
                         <option value="Full Body Strength">Full Body Strength</option>
                         <option value="Hill Sprints">Hill Sprints</option>
                         <option value="Long Run">Long Run</option>
@@ -138,6 +139,12 @@
                 <div>
                     <label for="session-results" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Results & Comments (Execution)</label>
                     <textarea id="session-results" rows="3" placeholder="e.g., Hit target paces. Heart rate peaked at 178 bpm. Felt strong on reps 3 and 4." class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none overflow-hidden"></textarea>
+                </div>
+
+                <!-- Alcohol Consumed Input Field -->
+                <div>
+                    <label for="session-alcohol" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Alcohol Consumed</label>
+                    <input type="text" id="session-alcohol" placeholder="e.g., 2 beers, 1 glass of wine (Optional)" class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                 </div>
 
                 <!-- Completed Checkbox in Modal -->
@@ -282,6 +289,7 @@
         const typeColors = {
             "Double Threshold": "bg-amber-100 text-amber-800 border-amber-200",
             "Easy Aerobic": "bg-teal-50 text-teal-800 border-teal-200",
+            "Easy Run": "bg-cyan-50 text-cyan-800 border-cyan-200",
             "Full Body Strength": "bg-violet-50 text-violet-800 border-violet-200",
             "Hill Sprints": "bg-pink-50 text-pink-800 border-pink-200",
             "Long Run": "bg-sky-50 text-sky-800 border-sky-200",
@@ -387,6 +395,7 @@
         const sessionDetailsText = document.getElementById('session-details');
         const sessionResultsText = document.getElementById('session-results');
         const sessionCompletedCheck = document.getElementById('session-completed');
+        const sessionAlcoholInput = document.getElementById('session-alcohol');
 
         // --- CLOUD SYNC FUNCTIONS ---
         async function pushToCloud() {
@@ -462,12 +471,12 @@
             const checked = event.target.checked;
             
             if (!trainingPlans[dayKey]) {
-                trainingPlans[dayKey] = { type: '', details: '', results: '', completed: false };
+                trainingPlans[dayKey] = { type: '', details: '', results: '', completed: false, alcohol: '' };
             }
             trainingPlans[dayKey].completed = checked;
 
             // Remove empty keys to save storage space
-            if (!trainingPlans[dayKey].type && !trainingPlans[dayKey].details && !trainingPlans[dayKey].results && !trainingPlans[dayKey].completed) {
+            if (!trainingPlans[dayKey].type && !trainingPlans[dayKey].details && !trainingPlans[dayKey].results && !trainingPlans[dayKey].completed && !trainingPlans[dayKey].alcohol) {
                 delete trainingPlans[dayKey];
             }
 
@@ -486,7 +495,7 @@
             for (let i = 0; i < 7; i++) {
                 const dayDate = addDays(startOfWeekDate, i);
                 const dayKey = formatDateKey(dayDate);
-                const dayData = trainingPlans[dayKey] || { type: '', details: '', results: '', completed: false };
+                const dayData = trainingPlans[dayKey] || { type: '', details: '', results: '', completed: false, alcohol: '' };
                 const isToday = formatDateKey(new Date()) === dayKey;
 
                 // Build Card
@@ -494,11 +503,12 @@
                 card.className = `flex flex-col bg-white rounded-xl border p-4 shadow-sm hover:shadow-md transition cursor-pointer min-h-[220px] ${dayData.completed ? 'border-l-4 border-l-emerald-500 border-y-slate-200 border-r-slate-200' : 'border-slate-200'} ${isToday ? 'ring-2 ring-indigo-500' : ''}`;
                 card.setAttribute('onclick', `openEditModal('${dayKey}')`);
 
-                // Card Header
+                // Card Header (Day, Date, Beer Icon & Simple Checkbox)
                 let headerHTML = `
                     <div class="flex justify-between items-baseline mb-2">
                         <span class="font-bold text-sm ${isToday ? 'text-indigo-600' : 'text-slate-700'}">${formatDisplayDate(dayDate)}</span>
                         <div class="flex items-center gap-2">
+                            ${dayData.alcohol ? `<span class="text-sm cursor-help" title="Alcohol Consumed: ${escapeHTML(dayData.alcohol)}">🍺</span>` : ''}
                             <input type="checkbox" ${dayData.completed ? 'checked' : ''} 
                                    onclick="toggleCompleted(event, '${dayKey}')" 
                                    class="w-4 h-4 text-emerald-600 border-slate-300 rounded focus:ring-emerald-500 cursor-pointer" 
@@ -517,8 +527,8 @@
                     badgeHTML = `<span class="inline-block text-xs font-semibold text-slate-300 border border-dashed border-slate-200 px-2 py-0.5 rounded-full mb-3 w-fit">Rest/Planned Off</span>`;
                 }
 
-                // Details Preview
-                let detailsHTML = `<p class="text-xs text-slate-600 whitespace-pre-wrap line-clamp-6 mb-4 flex-grow">${dayData.details ? renderDetailsHTML(dayData.details) : 'No plan details added yet.'}</p>`;
+                // Details Preview (Empty state text completely removed)
+                let detailsHTML = `<p class="text-xs text-slate-600 whitespace-pre-wrap line-clamp-6 mb-4 flex-grow">${dayData.details ? renderDetailsHTML(dayData.details) : ''}</p>`;
 
                 // Bottom Indicator if execution comments exist
                 let footerHTML = '';
@@ -564,7 +574,7 @@
         // Modal Operations
         window.openEditModal = function(dayKey) {
             const dayDate = new Date(dayKey + 'T00:00:00'); // Prevent timezone offset errors
-            const dayData = trainingPlans[dayKey] || { type: '', details: '', results: '', completed: false };
+            const dayData = trainingPlans[dayKey] || { type: '', details: '', results: '', completed: false, alcohol: '' };
 
             modalDateLabel.textContent = dayDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
             modalDateVal.value = dayKey;
@@ -572,6 +582,7 @@
             sessionDetailsText.value = dayData.details;
             sessionResultsText.value = dayData.results;
             sessionCompletedCheck.checked = dayData.completed || false;
+            sessionAlcoholInput.value = dayData.alcohol || '';
 
             // Trigger heights updates for textareas
             setTimeout(() => {
@@ -595,15 +606,17 @@
             const details = sessionDetailsText.value.trim();
             const results = sessionResultsText.value.trim();
             const completed = sessionCompletedCheck.checked;
+            const alcohol = sessionAlcoholInput.value.trim();
 
-            if (!selectedType && !details && !results && !completed) {
+            if (!selectedType && !details && !results && !completed && !alcohol) {
                 delete trainingPlans[dayKey];
             } else {
                 trainingPlans[dayKey] = {
                     type: selectedType,
                     details: details,
                     results: results,
-                    completed: completed
+                    completed: completed,
+                    alcohol: alcohol
                 };
             }
 
