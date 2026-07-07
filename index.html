@@ -104,7 +104,7 @@
             <form id="plan-form" class="p-6 space-y-4">
                 <input type="hidden" id="modal-date-val">
                 
-                <!-- Session Type Selection (Ordered Alphabetically) -->
+                <!-- Session Type Selection -->
                 <div>
                     <label for="session-type" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Session Type</label>
                     <select id="session-type" class="w-full border border-slate-200 rounded-lg p-2 bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
@@ -139,6 +139,18 @@
                 <div>
                     <label for="session-results" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Results & Comments (Execution)</label>
                     <textarea id="session-results" rows="3" placeholder="e.g., Hit target paces. Heart rate peaked at 178 bpm. Felt strong on reps 3 and 4." class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none overflow-hidden"></textarea>
+                </div>
+
+                <!-- Numerical Fields: Mileage & WB count -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="session-mileage" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Mileage (km)</label>
+                        <input type="number" id="session-mileage" step="any" min="0" placeholder="e.g., 8.5" class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="session-wb" class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">WB count (Reps)</label>
+                        <input type="number" id="session-wb" step="1" min="0" placeholder="e.g., 150" class="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    </div>
                 </div>
 
                 <!-- Alcohol Consumed Input Field -->
@@ -396,6 +408,8 @@
         const sessionResultsText = document.getElementById('session-results');
         const sessionCompletedCheck = document.getElementById('session-completed');
         const sessionAlcoholInput = document.getElementById('session-alcohol');
+        const sessionMileageInput = document.getElementById('session-mileage');
+        const sessionWbInput = document.getElementById('session-wb');
 
         // --- CLOUD SYNC FUNCTIONS ---
         async function pushToCloud() {
@@ -471,12 +485,12 @@
             const checked = event.target.checked;
             
             if (!trainingPlans[dayKey]) {
-                trainingPlans[dayKey] = { type: '', details: '', results: '', completed: false, alcohol: '' };
+                trainingPlans[dayKey] = { type: '', details: '', results: '', completed: false, alcohol: '', mileage: null, wb: null };
             }
             trainingPlans[dayKey].completed = checked;
 
             // Remove empty keys to save storage space
-            if (!trainingPlans[dayKey].type && !trainingPlans[dayKey].details && !trainingPlans[dayKey].results && !trainingPlans[dayKey].completed && !trainingPlans[dayKey].alcohol) {
+            if (!trainingPlans[dayKey].type && !trainingPlans[dayKey].details && !trainingPlans[dayKey].results && !trainingPlans[dayKey].completed && !trainingPlans[dayKey].alcohol && (trainingPlans[dayKey].mileage === null || trainingPlans[dayKey].mileage === undefined) && (trainingPlans[dayKey].wb === null || trainingPlans[dayKey].wb === undefined)) {
                 delete trainingPlans[dayKey];
             }
 
@@ -488,6 +502,31 @@
             }
         };
 
+        // Calculates Weekly totals for Mileage and Wall Ball reps
+        function calculateWeeklyTotals(startDate) {
+            let totalMileage = 0;
+            let totalWb = 0;
+            for (let i = 0; i < 7; i++) {
+                const dayDate = addDays(startDate, i);
+                const dayKey = formatDateKey(dayDate);
+                const dayData = trainingPlans[dayKey];
+                if (dayData) {
+                    if (dayData.mileage) {
+                        totalMileage += parseFloat(dayData.mileage);
+                    }
+                    if (dayData.wb) {
+                        totalWb += parseInt(dayData.wb, 10);
+                    }
+                }
+            }
+            return { mileage: totalMileage, wb: totalWb };
+        }
+
+        // Formatter to clean decimal display (e.g., 45.50 -> 45.5, 45.00 -> 45)
+        function formatMileageDisplay(num) {
+            return Number(parseFloat(num).toFixed(2));
+        }
+
         // Helper to populate individual weekly grids
         function populateGrid(gridElement, startOfWeekDate) {
             gridElement.innerHTML = '';
@@ -495,7 +534,7 @@
             for (let i = 0; i < 7; i++) {
                 const dayDate = addDays(startOfWeekDate, i);
                 const dayKey = formatDateKey(dayDate);
-                const dayData = trainingPlans[dayKey] || { type: '', details: '', results: '', completed: false, alcohol: '' };
+                const dayData = trainingPlans[dayKey] || { type: '', details: '', results: '', completed: false, alcohol: '', mileage: null, wb: null };
                 const isToday = formatDateKey(new Date()) === dayKey;
 
                 // Build Card
@@ -552,7 +591,7 @@
             }
         }
 
-        // Render both Week 1 and Week 2
+        // Render both Week 1 and Week 2 with dynamic totals
         function renderWeeks() {
             const week1Start = new Date(currentMonday);
             const week1End = addDays(week1Start, 6);
@@ -560,11 +599,20 @@
             const week2Start = addDays(week1Start, 7);
             const week2End = addDays(week1Start, 13);
 
-            // Update Week 1 Heading
-            week1Heading.textContent = `Week 1: ${week1Start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${week1End.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+            // Calculate Totals
+            const week1Totals = calculateWeeklyTotals(week1Start);
+            const week2Totals = calculateWeeklyTotals(week2Start);
+
+            const m1 = formatMileageDisplay(week1Totals.mileage);
+            const m2 = formatMileageDisplay(week2Totals.mileage);
+            const wb1 = week1Totals.wb;
+            const wb2 = week2Totals.wb;
+
+            // Update Week 1 Heading (With dynamic metrics formatted)
+            week1Heading.textContent = `Week 1: ${week1Start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${week1End.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} (${m1} km; ${wb1} WB)`;
             
             // Update Week 2 Heading
-            week2Heading.textContent = `Week 2: ${week2Start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${week2End.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+            week2Heading.textContent = `Week 2: ${week2Start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${week2End.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} (${m2} km; ${wb2} WB)`;
             
             // Render Grids
             populateGrid(week1Grid, week1Start);
@@ -574,7 +622,7 @@
         // Modal Operations
         window.openEditModal = function(dayKey) {
             const dayDate = new Date(dayKey + 'T00:00:00'); // Prevent timezone offset errors
-            const dayData = trainingPlans[dayKey] || { type: '', details: '', results: '', completed: false, alcohol: '' };
+            const dayData = trainingPlans[dayKey] || { type: '', details: '', results: '', completed: false, alcohol: '', mileage: null, wb: null };
 
             modalDateLabel.textContent = dayDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
             modalDateVal.value = dayKey;
@@ -583,12 +631,11 @@
             sessionResultsText.value = dayData.results;
             sessionCompletedCheck.checked = dayData.completed || false;
             sessionAlcoholInput.value = dayData.alcohol || '';
+            sessionMileageInput.value = (dayData.mileage !== null && dayData.mileage !== undefined) ? dayData.mileage : '';
+            sessionWbInput.value = (dayData.wb !== null && dayData.wb !== undefined) ? dayData.wb : '';
 
-            // Trigger heights updates for textareas
-            setTimeout(() => {
-                autoResizeTextarea(sessionDetailsText);
-                autoResizeTextarea(sessionResultsText);
-            }, 10);
+            autoResizeTextarea(sessionDetailsText);
+            autoResizeTextarea(sessionResultsText);
 
             modalBackdrop.classList.remove('hidden');
         };
@@ -607,8 +654,14 @@
             const results = sessionResultsText.value.trim();
             const completed = sessionCompletedCheck.checked;
             const alcohol = sessionAlcoholInput.value.trim();
+            
+            const mileageVal = sessionMileageInput.value;
+            const mileage = mileageVal ? parseFloat(mileageVal) : null;
 
-            if (!selectedType && !details && !results && !completed && !alcohol) {
+            const wbVal = sessionWbInput.value;
+            const wb = wbVal ? parseInt(wbVal, 10) : null;
+
+            if (!selectedType && !details && !results && !completed && !alcohol && mileage === null && wb === null) {
                 delete trainingPlans[dayKey];
             } else {
                 trainingPlans[dayKey] = {
@@ -616,7 +669,9 @@
                     details: details,
                     results: results,
                     completed: completed,
-                    alcohol: alcohol
+                    alcohol: alcohol,
+                    mileage: mileage,
+                    wb: wb
                 };
             }
 
@@ -889,4 +944,4 @@
         init();
     </script>
 </body>
-</html>
+</html> 
